@@ -267,33 +267,28 @@ elif page == "🎥 HD Video Generator":
     if 'cam_bearing' not in st.session_state: st.session_state.cam_bearing = 0
     if 'map_key_counter' not in st.session_state: st.session_state.map_key_counter = 0
 
-    st.markdown("### 🎞️ Export Settings")
-    set1, set2, set3, set4, set5 = st.columns(5)
-    with set1:
+    main_left, main_right = st.columns([1, 2.5])
+    
+    with main_left:
+        st.markdown("### 🎞️ Export Settings")
         video_map_style = st.selectbox("Map Style", ["Dark Mode", "Light Mode", "3D Satellite Terrain", "3D Spinning Globe"], index=["Dark Mode", "Light Mode", "3D Satellite Terrain", "3D Spinning Globe"].index(map_style_choice))
-    with set2:
         start_date = st.selectbox("Start Date", options=available_dates[::-1], index=len(available_dates)-8)
-    with set3:
         end_date = st.selectbox("End Date", options=available_dates, index=0)
-    with set4:
         resolution = st.selectbox("Resolution", ["1080p (FHD)", "1440p (QHD)", "4K (UHD)"])
-    with set5:
         speed = st.selectbox("Speed (Days/Sec)", [1, 2, 5, 10, 24, 30], index=2)
 
-    # Override global map styles for this specific section
-    is_globe = video_map_style == "3D Spinning Globe"
-    is_3d = video_map_style == "3D Satellite Terrain"
-    if video_map_style == "Dark Mode": selected_style = pdk.map_styles.DARK
-    elif video_map_style == "Light Mode": selected_style = pdk.map_styles.LIGHT
-    else: selected_style = None
+        # Override global map styles for this specific section
+        is_globe = video_map_style == "3D Spinning Globe"
+        is_3d = video_map_style == "3D Satellite Terrain"
+        if video_map_style == "Dark Mode": selected_style = pdk.map_styles.DARK
+        elif video_map_style == "Light Mode": selected_style = pdk.map_styles.LIGHT
+        else: selected_style = None
 
-    st.markdown("---")
-    
-    colTitle, colReset = st.columns([5, 1])
-    with colTitle:
+        st.markdown("---")
+        
         st.markdown("### 📷 Camera Framing")
-        st.caption("*Drag, zoom, and pitch the interactive map below. What you see framed here is exactly what will be exported!*")
-    with colReset:
+        st.caption("*Drag, zoom, and pitch the map. What you see framed is exactly what will be exported!*")
+        
         if st.button("🔄 Reset Camera", use_container_width=True):
             st.session_state.cam_lat = 30.0
             st.session_state.cam_lon = 0.0
@@ -302,48 +297,42 @@ elif page == "🎥 HD Video Generator":
             st.session_state.cam_bearing = 0
             st.session_state.map_key_counter += 1
             st.rerun()
-            
-    with st.expander("⚙️ Advanced Manual Camera Controls"):
-        colA, colB, colC, colD, colE = st.columns(5)
-        with colA:
+                
+        with st.expander("⚙️ Advanced Controls"):
             cam_lat = st.number_input("Latitude", value=float(st.session_state.cam_lat), step=5.0)
-        with colB:
             cam_lon = st.number_input("Longitude", value=float(st.session_state.cam_lon), step=5.0)
-        with colC:
             cam_zoom = st.slider("Zoom", min_value=0.5, max_value=20.0, value=float(st.session_state.cam_zoom), step=0.5)
-        with colD:
             cam_pitch = st.slider("Pitch (3D)", min_value=0, max_value=85, value=int(st.session_state.cam_pitch))
-        with colE:
             cam_bearing = st.slider("Bearing", min_value=-180, max_value=180, value=int(st.session_state.cam_bearing))
-            
-        if (cam_lat != st.session_state.cam_lat or 
-            cam_lon != st.session_state.cam_lon or 
-            cam_zoom != st.session_state.cam_zoom or 
-            cam_pitch != st.session_state.cam_pitch or 
-            cam_bearing != st.session_state.cam_bearing):
-            st.session_state.cam_lat = cam_lat
-            st.session_state.cam_lon = cam_lon
-            st.session_state.cam_zoom = cam_zoom
-            st.session_state.cam_pitch = cam_pitch
-            st.session_state.cam_bearing = cam_bearing
-            st.rerun()
+                
+            if (cam_lat != st.session_state.cam_lat or 
+                cam_lon != st.session_state.cam_lon or 
+                cam_zoom != st.session_state.cam_zoom or 
+                cam_pitch != st.session_state.cam_pitch or 
+                cam_bearing != st.session_state.cam_bearing):
+                st.session_state.cam_lat = cam_lat
+                st.session_state.cam_lon = cam_lon
+                st.session_state.cam_zoom = cam_zoom
+                st.session_state.cam_pitch = cam_pitch
+                st.session_state.cam_bearing = cam_bearing
+                st.rerun()
 
-    # Interactive component logic
-    preview_layers = []
-    with st.spinner("Loading preview data..."):
-        preview_df = load_data(available_dates[0])
+    with main_right:
+        # Interactive component logic
+        preview_layers = []
+        with st.spinner("Loading preview data..."):
+            preview_df = load_data(available_dates[0])
+            
+        import streamlit.components.v1 as components
+        import os
+        component_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deckgl_sync_component")
+        deckgl_sync = components.declare_component("deckgl_sync", path=component_dir)
         
-    import streamlit.components.v1 as components
-    import os
-    component_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deckgl_sync_component")
-    deckgl_sync = components.declare_component("deckgl_sync", path=component_dir)
-    
-    hex_data = []
-    if not preview_df.empty:
-        preview_df['color'] = preview_df['interference_percentage'].apply(get_color)
-        hex_data = preview_df[['hex', 'color', 'interference_percentage']].to_dict('records')
-    preview_col_left, preview_col_center, preview_col_right = st.columns([1, 6, 1])
-    with preview_col_center:
+        hex_data = []
+        if not preview_df.empty:
+            preview_df['color'] = preview_df['interference_percentage'].apply(get_color)
+            hex_data = preview_df[['hex', 'color', 'interference_percentage']].to_dict('records')
+            
         returned_view_state = deckgl_sync(
             view_state={
                 "latitude": st.session_state.cam_lat, 
