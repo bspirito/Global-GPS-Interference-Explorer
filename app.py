@@ -558,7 +558,14 @@ elif page == "🌍 Global Trends":
     try:
         all_time_hist = pd.read_sql_query("SELECT interference_percentage FROM all_time_stats WHERE interference_percentage > 0.02", conn)
         fig_hist = px.histogram(all_time_hist, x="interference_percentage", nbins=50, title="Distribution of Interference Severity (Hexes > 2%)")
-        fig_hist.update_layout(template="plotly_dark", plot_bgcolor="#0e1117", paper_bgcolor="#0e1117", xaxis_title="Interference %", yaxis_title="Number of Regions")
+        fig_hist.update_layout(
+            template="plotly_dark", 
+            plot_bgcolor="#0e1117", 
+            paper_bgcolor="#0e1117", 
+            xaxis_title="Interference %", 
+            yaxis_title="Number of Regions",
+            xaxis_tickformat=".0%"
+        )
         st.plotly_chart(fig_hist, use_container_width=True)
     except Exception as e:
         st.warning("Histogram data is building.")
