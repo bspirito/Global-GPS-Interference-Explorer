@@ -348,31 +348,30 @@ elif page == "🎥 HD Video Generator":
             key=f"deckgl_sync_{st.session_state.map_key_counter}"
         )
     
-    if returned_view_state:
-        d_lat = abs(returned_view_state['lat'] - st.session_state.cam_lat)
-        d_lon = abs(returned_view_state['lon'] - st.session_state.cam_lon)
-        d_zoom = abs(returned_view_state['zoom'] - st.session_state.cam_zoom)
-        d_pitch = abs(returned_view_state['pitch'] - st.session_state.cam_pitch)
-        d_bearing = abs(returned_view_state['bearing'] - st.session_state.cam_bearing)
-        
-        if d_lat > 0.001 or d_lon > 0.001 or d_zoom > 0.01 or d_pitch > 1.0 or d_bearing > 1.0:
-            st.session_state.cam_lat = float(returned_view_state['lat'])
-            st.session_state.cam_lon = float(returned_view_state['lon'])
-            st.session_state.cam_zoom = float(returned_view_state['zoom'])
-            st.session_state.cam_pitch = float(returned_view_state['pitch'])
-            st.session_state.cam_bearing = float(returned_view_state['bearing'])
-            st.rerun()
+        # Update session state if camera moved
+        if returned_view_state:
+            d_lat = abs(returned_view_state['lat'] - st.session_state.cam_lat)
+            d_lon = abs(returned_view_state['lon'] - st.session_state.cam_lon)
+            d_zoom = abs(returned_view_state['zoom'] - st.session_state.cam_zoom)
+            d_pitch = abs(returned_view_state['pitch'] - st.session_state.cam_pitch)
+            d_bearing = abs(returned_view_state['bearing'] - st.session_state.cam_bearing)
             
-    # Set variables for the generator call
-    cam_lat = st.session_state.cam_lat
-    cam_lon = st.session_state.cam_lon
-    cam_zoom = st.session_state.cam_zoom
-    cam_pitch = st.session_state.cam_pitch
-    cam_bearing = st.session_state.cam_bearing
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    g1, g2, g3 = st.columns([1, 2, 1])
-    with g2:
+            if d_lat > 0.001 or d_lon > 0.001 or d_zoom > 0.01 or d_pitch > 1.0 or d_bearing > 1.0:
+                st.session_state.cam_lat = float(returned_view_state['lat'])
+                st.session_state.cam_lon = float(returned_view_state['lon'])
+                st.session_state.cam_zoom = float(returned_view_state['zoom'])
+                st.session_state.cam_pitch = float(returned_view_state['pitch'])
+                st.session_state.cam_bearing = float(returned_view_state['bearing'])
+                st.rerun()
+                
+        # Set variables for the generator call
+        cam_lat = st.session_state.cam_lat
+        cam_lon = st.session_state.cam_lon
+        cam_zoom = st.session_state.cam_zoom
+        cam_pitch = st.session_state.cam_pitch
+        cam_bearing = st.session_state.cam_bearing
+        
+        st.markdown("<br>", unsafe_allow_html=True)
         btn_placeholder = st.empty()
         
         if btn_placeholder.button("🎬 Generate HD Video", use_container_width=True, type="primary"):
