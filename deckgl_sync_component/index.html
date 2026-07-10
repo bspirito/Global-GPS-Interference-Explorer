@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Load Deck.GL and its dependencies -->
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+  <script src="https://unpkg.com/deck.gl@8.9.0/dist.min.js"></script>
+  <script src="https://unpkg.com/@deck.gl/geo-layers@8.9.0/dist.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #deck-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+  <div id="deck-container"></div>
+  <script>
+    // ----------------------------------------------------
+    // Streamlit Component API 
+    // ----------------------------------------------------
+    function sendMessageToStreamlit(type, data) {
+      window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: type,
+        ...data
+      }, "*");
+    }
+
+    let deckgl;
+    let currentViewState = null;
+    let isInitialized = false;
+
+    window.addEventListener("message", function(event) {
+      if (event.data.type === "streamlit:render") {
+        const args = event.data.args;
+        
+        // Initialize deck.gl map on first render
+        if (!isInitialized) {
+          isInitialized = true;
+          currentViewState = args.view_state;
+
+          // Convert backend Map Style to valid Carto basemap URLs
+          let styleUrl = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+          if (args.map_style === "mapbox://styles/mapbox/light-v9") {
+            styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+          }
+          
+          let debounceTimer;
+          deckgl = new deck.DeckGL({
+            container: 'deck-container',
+            initialViewState: currentViewState,
+            mapStyle: styleUrl,
+            controller: true,
+            layers: [],
+            onViewStateChange: ({viewState, interactionState}) => {
+              currentViewState = viewState;
+              
+              // Debounce the message to Python to prevent massive lag while dragging
+              clearTimeout(debounceTimer);
+              debounceTimer = setTimeout(() => {
+                sendMessageToStreamlit("streamlit:setComponentValue", {
+                  value: {
+                    lat: viewState.latitude,
+                    lon: viewState.longitude,
+                    zoom: viewState.zoom,
+                    pitch: viewState.pitch,
+                    bearing: viewState.bearing
+                  }
+                });
+              }, 300);
+              
+              return viewState;
+            }
+          });
+          
+          // Request an appropriate height from Streamlit to perfectly match 16:9 video aspect ratio
+          function updateAspectRatio() {
+              const width = window.innerWidth;
+              const targetHeight = Math.max(300, Math.round(width * (9 / 16)));
+              sendMessageToStreamlit("streamlit:setFrameHeight", {height: targetHeight});
+          }
+          window.addEventListener("resize", updateAspectRatio);
+          updateAspectRatio();
+        }
+        // --- Data Update Logic ---
+        // Always reconstruct layers on render if data changes
+        if (deckgl) {
+          const newLayers = [];
+          
+          const is3d = (args.map_style === null && !args.is_globe);
+          
+          // 1. Base Map Layer (Raster or Terrain)
+          if (is3d) {
+              newLayers.push(new deck.TerrainLayer({
+                  id: 'terrain-layer',
+                  elevationDecoder: {rScaler: 256, gScaler: 1, bScaler: 1 / 256, offset: -32768},
+                  elevationData: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+                  texture: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  maxRequests: 10
+              }));
+              newLayers.push(new deck.TerrainLayer({
+                  id: 'terrain-layer-borders',
+                  elevationDecoder: {rScaler: 256, gScaler: 1, bScaler: 1 / 256, offset: -32718},
+                  elevationData: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+                  texture: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                  maxRequests: 10
+              }));
+          } else if (!args.is_globe) {
+              let tileUrl = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+              if (args.map_style === "light") {
+                tileUrl = 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+              }
+              newLayers.push(new deck.TileLayer({
+                id: 'basemap-tiles',
+                data: tileUrl,
+                minZoom: 0,
+                maxZoom: 19,
+                tileSize: 256,
+                renderSubLayers: props => {
+                  const {bbox: {west, south, east, north}} = props.tile;
+                  return new deck.BitmapLayer(props, {
+                    data: null,
+                    image: props.data,
+                    bounds: [west, south, east, north]
+                  });
+                }
+              }));
+          }
+          
+          // 2. Hexagon Interference Data
+          const shouldExtrude = is3d || args.is_globe;
+          if (args.hex_data && args.hex_data.length > 0) {
+            newLayers.push(new deck.H3HexagonLayer({
+              id: 'preview-hexes',
+              data: args.hex_data,
+              pickable: false,
+              stroked: !shouldExtrude,
+              filled: true,
+              extruded: shouldExtrude,
+              getHexagon: d => d.hex,
+              getFillColor: d => d.color,
+              getLineColor: [255, 255, 255, 20],
+              lineWidthMinPixels: 0,
+              getElevation: shouldExtrude ? d => {
+                  return d.interference_percentage * 100000; 
+              } : null
+            }));
+          }
+          
+          if (!is3d) {
+              // 3. GeoJson Country Borders
+              newLayers.push(new deck.GeoJsonLayer({
+                  id: 'countries',
+                  data: 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
+                  getFillColor: args.is_globe ? [30, 30, 30] : [0, 0, 0, 0],
+                  getLineColor: [150, 150, 150, 100],
+                  lineWidthMinPixels: 1,
+                  stroked: true,
+                  filled: args.is_globe
+              }));
+              
+              // 4. Continent Text Labels
+              const continentLabels = [
+                  {"name": "North America", "coordinates": [-100.0, 40.0, 100000]},
+                  {"name": "South America", "coordinates": [-60.0, -15.0, 100000]},
+                  {"name": "Europe", "coordinates": [15.0, 50.0, 100000]},
+                  {"name": "Africa", "coordinates": [20.0, 0.0, 100000]},
+                  {"name": "Asia", "coordinates": [90.0, 45.0, 100000]},
+                  {"name": "Australia", "coordinates": [135.0, -25.0, 100000]},
+                  {"name": "Antarctica", "coordinates": [0.0, -80.0, 100000]}
+              ];
+              newLayers.push(new deck.TextLayer({
+                  id: 'continents',
+                  data: continentLabels,
+                  getPosition: d => d.coordinates,
+                  getText: d => d.name,
+                  getSize: 32,
+                  getColor: [255, 255, 255, 200],
+                  getAlignmentBaseline: 'center'
+              }));
+          }
+          
+          // Switch to GlobeView if requested
+          if (args.is_globe) {
+            deckgl.setProps({
+              views: [new deck._GlobeView({id: 'globe', controller: true})]
+            });
+          } else {
+            deckgl.setProps({
+              views: [new deck.MapView({id: 'map', controller: true})]
+            });
+          }
+          
+          deckgl.setProps({layers: newLayers});
+        }
+      }
+    });
+
+    // Notify Streamlit that this component is fully loaded and ready
+    sendMessageToStreamlit("streamlit:componentReady", {apiVersion: 1});
+  </script>
+</body>
+</html>

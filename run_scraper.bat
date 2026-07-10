@@ -1,0 +1,6 @@
+@echo off
+cd /d "%~dp0"
+call venv\Scripts\activate
+python scraper.py
+echo Done!
+pause

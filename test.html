@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <title>pydeck</title>
+        <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.13.0/mapbox-gl.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.14.0/dist/maplibre-gl.css" />
+    <script src='https://cdn.jsdelivr.net/npm/@deck.gl/jupyter-widget@~9.3.*/dist/index.js'></script>
+    <link rel="stylesheet" href=https://cdn.jsdelivr.net/npm/@deck.gl/widgets@~9.3.*/dist/stylesheet.css />
+    <style>
+    body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#deck-container {
+  width: 100vw;
+  height: 100vh;
+}
+
+#deck-container canvas {
+  z-index: 1;
+  background: none;
+}
+
+#deck-container .error_text {
+  color: red;
+  background: none;
+  position: absolute;
+  z-index: 100;
+}
+    </style>
+  </head>
+  <body>
+    <div id="deck-container">
+    </div>
+  </body>
+  <script>
+    const container = document.getElementById('deck-container');
+    const jsonInput = {
+  "initialViewState": {
+    "latitude": 0,
+    "longitude": 0,
+    "zoom": 1
+  },
+  "layers": [
+    {
+      "@@type": "TileLayer",
+      "data": "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+      "id": "2e9e881f-a177-41da-a36a-1483881c8a82"
+    }
+  ],
+  "mapProvider": "carto",
+  "mapStyle": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  "views": [
+    {
+      "@@type": "_GlobeView"
+    }
+  ]
+};
+    const tooltip = true;
+    const customLibraries = null;
+    const configuration = null;
+
+    const deckInstance = createDeck({
+                  container,
+      jsonInput,
+      tooltip,
+      customLibraries,
+      configuration,
+          });
+
+  </script>
+</html>
