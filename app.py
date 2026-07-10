@@ -8,7 +8,7 @@ import video_engine
 import plotly.express as px
 
 # Premium UI config
-st.set_page_config(page_title="GPS Interference Explorer", layout="wide", page_icon="📡")
+st.set_page_config(page_title="Global GPS Interference Explorer", layout="wide", page_icon="📡")
 
 # Custom CSS for a more premium look
 st.markdown("""
@@ -644,8 +644,8 @@ elif page == "🔥 All-Time Heatmap":
                 all_time_df['color'] = all_time_df['interference_percentage'].apply(get_color)
                 all_time_df['tooltip_html'] = (
                     "<b>All-Time Interference:</b> " + (all_time_df['interference_percentage'] * 100).round(1).astype(str) + "%<br/>" +
-                    "<b>Total Jammed Aircraft:</b> " + all_time_df['total_bad'].astype(str) + "<br/>" +
-                    "<b>Total Safe Aircraft:</b> " + all_time_df['total_good'].astype(str)
+                    "<b>Total Jammed Aircraft:</b> " + all_time_df['count_bad_aircraft'].astype(str) + "<br/>" +
+                    "<b>Total Safe Aircraft:</b> " + all_time_df['count_good_aircraft'].astype(str)
                 )
                 
                 is_3d_terrain_all = map_style_choice == "3D Satellite Terrain"
@@ -721,4 +721,4 @@ elif page == "🔥 All-Time Heatmap":
             else:
                 st.warning("All-time heatmap data is empty. Ensure the analytics pre-processor has finished running.")
         except Exception as e:
-            st.warning("All-time heatmap is currently building in the background. Check back soon!")
+            st.warning(f"All-time heatmap failed to load: {e}")
